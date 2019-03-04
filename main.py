@@ -16,7 +16,7 @@ from network import StyleGAN
 from param import Param
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--model_dir", type=str, default="sagan_model")
+parser.add_argument("--model_dir", type=str, default="celeba_style_gan_model")
 parser.add_argument('--filenames', type=str, nargs="+", default=["celeba_train.tfrecord"])
 parser.add_argument("--batch_size", type=int, default=64)
 parser.add_argument("--total_steps", type=int, default=1000000)
