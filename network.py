@@ -215,30 +215,32 @@ class StyleGAN(object):
                 )
             return images
 
-        # label embedding
-        labels = embed(
-            inputs=labels,
-            units=latents.shape[1],
-            variance_scale=1,
-            scale_weight=True
-        )
-        latents = tf.concat([latents, labels], axis=1)
-        latents = pixel_norm(latents)
-
-        # mapping network
-        for i in range(self.mapping_layers):
-            with tf.variable_scope("mapping_layer_{}".format(i)):
-                latents = dense(
-                    inputs=latents,
-                    units=latents.shape[1],
-                    use_bias=True,
-                    variance_scale=2,
-                    scale_weight=True
-                )
-                latents = tf.nn.leaky_relu(latents)
-
         with tf.variable_scope(name, reuse=reuse):
+
             growing_depth = log((1 << self.min_depth) + progress * ((1 << (self.max_depth + 1)) - (1 << self.min_depth)), 2.)
+
+            # label embedding
+            labels = embed(
+                inputs=labels,
+                units=latents.shape[1],
+                variance_scale=1,
+                scale_weight=True
+            )
+            latents = tf.concat([latents, labels], axis=1)
+            latents = pixel_norm(latents)
+
+            # mapping network
+            for i in range(self.mapping_layers):
+                with tf.variable_scope("mapping_layer_{}".format(i)):
+                    latents = dense(
+                        inputs=latents,
+                        units=latents.shape[1],
+                        use_bias=True,
+                        variance_scale=2,
+                        scale_weight=True
+                    )
+                    latents = tf.nn.leaky_relu(latents)
+
             return grow(latents, self.min_depth)
 
     def discriminator(self, images, labels, training, progress, name="dicriminator", reuse=None):
@@ -373,5 +375,7 @@ class StyleGAN(object):
             return feature_maps
 
         with tf.variable_scope(name, reuse=reuse):
+
             growing_depth = log((1 << self.min_depth) + progress * ((1 << (self.max_depth + 1)) - (1 << self.min_depth)), 2.)
+
             return grow(images, self.min_depth)
