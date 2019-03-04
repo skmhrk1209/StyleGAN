@@ -9,7 +9,7 @@ def log(x, base): return tf.log(x) / tf.log(base)
 def lerp(a, b, t): return t * a + (1. - t) * b
 
 
-class PGGAN(object):
+class StyleGAN(object):
 
     def __init__(self, min_resolution, max_resolution, min_channels, max_channels):
 

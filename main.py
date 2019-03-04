@@ -1,20 +1,7 @@
 #=================================================================================================#
-# TensorFlow implementation of GANSynth
-#
-# original paper
-# [GANSynth: Adversarial Neural Audio Synthesis]
-# (https://openreview.net/pdf?id=H1xQVn09FX)
-#
-# based on following papers
-#
-# [Progressive Growing of GANs for Improved Quality, Stability, and Variation]
-# (https://arxiv.org/pdf/1710.10196.pdf)
-#
-# [Spectral Normalization for Generative Adversarial Networks]
-# (https://arxiv.org/pdf/1802.05957.pdf)
-#
-# [cGANs with Projection Discriminator]
-# (https://arxiv.org/pdf/1802.05637.pdf)
+# StyleGAN: TensorFlow implementation of "A Style-Based Generator Architecture for Generative Adversarial Networks"
+# [A Style-Based Generator Architecture for Generative Adversarial Networks]
+# (https://arxiv.org/pdf/1812.04948.pdf)
 #=================================================================================================#
 
 import tensorflow as tf
@@ -24,7 +11,7 @@ import functools
 import pickle
 from dataset import NSynth
 from model import GANSynth
-from network import PGGAN
+from network import StyleGAN
 from param import Param
 
 parser = argparse.ArgumentParser()
@@ -45,7 +32,7 @@ with tf.Graph().as_default():
 
     tf.set_random_seed(0)
 
-    pggan = PGGAN(
+    pggan = StyleGAN(
         min_resolution=[1, 8],
         max_resolution=[128, 1024],
         min_channels=16,
