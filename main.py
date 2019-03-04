@@ -9,7 +9,7 @@ import numpy as np
 import argparse
 import functools
 import pickle
-from dataset import NSynth
+from dataset import celeba_input_fn
 from model import GANSynth
 from network import StyleGAN
 from param import Param
@@ -32,7 +32,7 @@ with tf.Graph().as_default():
 
     tf.set_random_seed(0)
 
-    pggan = StyleGAN(
+    stylegan = StyleGAN(
         min_resolution=[1, 8],
         max_resolution=[128, 1024],
         min_channels=16,
@@ -40,19 +40,11 @@ with tf.Graph().as_default():
         apply_spectral_norm=True
     )
 
-    nsynth = NSynth(
-        pitch_counts=pitch_counts,
-        audio_length=64000,
-        sample_rate=16000,
-        spectrogram_shape=[128, 1024],
-        overlap=0.75
-    )
-
     gan_synth = GANSynth(
-        discriminator=pggan.discriminator,
-        generator=pggan.generator,
+        discriminator=stylegan.discriminator,
+        generator=stylegan.generator,
         real_input_fn=functools.partial(
-            nsynth.input_fn,
+            celeba_input_fn,
             filenames=args.filenames,
             batch_size=args.batch_size,
             num_epochs=None,
