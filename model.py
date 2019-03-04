@@ -1,14 +1,11 @@
 import tensorflow as tf
-import numpy as np
-import itertools
-import functools
 import os
 
 
-class GANSynth(object):
+class GAN(object):
 
     def __init__(self, discriminator, generator, real_input_fn, fake_input_fn,
-                 hyper_params, name="gan_synth", reuse=None):
+                 hyper_params, name="gan", reuse=None):
 
         with tf.variable_scope(name, reuse=reuse):
             # =========================================================================================
@@ -17,9 +14,7 @@ class GANSynth(object):
             # =========================================================================================
             # parameters
             self.training = tf.placeholder(dtype=tf.bool, shape=[])
-            self.total_steps = tf.placeholder(dtype=tf.int32, shape=[])
             self.global_step = tf.Variable(initial_value=0, trainable=False)
-            self.progress = tf.cast(self.global_step / self.total_steps, tf.float32)
             # =========================================================================================
             # input_fn for real data and fake data
             self.real_images, self.real_labels = real_input_fn()
@@ -30,7 +25,6 @@ class GANSynth(object):
                 latents=self.fake_latents,
                 labels=self.fake_labels,
                 training=self.training,
-                progress=self.progress,
                 name="generator"
             )
             # =========================================================================================
@@ -39,14 +33,12 @@ class GANSynth(object):
                 images=self.real_images,
                 labels=self.real_labels,
                 training=self.training,
-                progress=self.progress,
                 name="discriminator"
             )
             self.fake_logits = discriminator(
                 images=self.fake_images,
                 labels=self.fake_labels,
                 training=self.training,
-                progress=self.progress,
                 name="discriminator",
                 reuse=True
             )
@@ -105,10 +97,8 @@ class GANSynth(object):
             # utilities
             self.saver = tf.train.Saver()
             self.summary = tf.summary.merge([
-                tf.summary.image("real_log_mel_magnitude_spectrograms", self.real_images[:, 0, ..., tf.newaxis], max_outputs=2),
-                tf.summary.image("real_mel_instantaneous_frequencies", self.real_images[:, 1, ..., tf.newaxis], max_outputs=2),
-                tf.summary.image("fake_log_mel_magnitude_spectrograms", self.fake_images[:, 0, ..., tf.newaxis], max_outputs=2),
-                tf.summary.image("fake_mel_instantaneous_frequencies", self.fake_images[:, 1, ..., tf.newaxis], max_outputs=2),
+                tf.summary.image("real_images", tf.transpose(self.real_images, [0, 2, 3, 1]), max_outputs=2),
+                tf.summary.image("fake_images", tf.transpose(self.fake_images, [0, 2, 3, 1]), max_outputs=2),
                 tf.summary.scalar("discriminator_loss", self.discriminator_loss),
                 tf.summary.scalar("generator_loss", self.generator_loss)
             ])
@@ -116,7 +106,6 @@ class GANSynth(object):
     def initialize(self):
 
         session = tf.get_default_session()
-        session.run(tf.tables_initializer())
 
         checkpoint = tf.train.latest_checkpoint(self.name)
         if checkpoint:
@@ -132,10 +121,7 @@ class GANSynth(object):
         session = tf.get_default_session()
         writer = tf.summary.FileWriter(self.name, session.graph)
 
-        feed_dict = {
-            self.training: True,
-            self.total_steps: total_steps
-        }
+        feed_dict = {self.training: True}
 
         while True:
 
@@ -157,7 +143,7 @@ class GANSynth(object):
                     feed_dict=feed_dict
                 )
                 tf.logging.info("global_step: {}, discriminator_loss: {:.2f}, generator_loss: {:.2f}".format(
-                    global_step. discriminator_loss, generator_loss
+                    global_step, discriminator_loss, generator_loss
                 ))
 
                 summary = session.run(
