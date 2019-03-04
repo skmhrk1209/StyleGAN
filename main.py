@@ -1,8 +1,7 @@
 #=================================================================================================#
-# TensorFlow implementation of Self-Attention GAN
-#
-# [Self-Attention Generative Adversarial Networks]
-# (https://arxiv.org/pdf/1805.08318.pdf)
+# TensorFlow implementation of StyleGAN
+# [A Style-Based Generator Architecture for Generative Adversarial Networks]
+# (https://arxiv.org/pdf/1812.04948.pdf)
 #=================================================================================================#
 
 import tensorflow as tf
