@@ -1,4 +1,7 @@
 import tensorflow as tf
+import numpy as np
+import itertools
+import functools
 import os
 
 
@@ -14,7 +17,9 @@ class GAN(object):
             # =========================================================================================
             # parameters
             self.training = tf.placeholder(dtype=tf.bool, shape=[])
+            self.total_steps = tf.placeholder(dtype=tf.int32, shape=[])
             self.global_step = tf.Variable(initial_value=0, trainable=False)
+            self.progress = tf.cast(self.global_step / self.total_steps, tf.float32)
             # =========================================================================================
             # input_fn for real data and fake data
             self.real_images, self.real_labels = real_input_fn()
@@ -25,6 +30,7 @@ class GAN(object):
                 latents=self.fake_latents,
                 labels=self.fake_labels,
                 training=self.training,
+                progress=self.progress,
                 name="generator"
             )
             # =========================================================================================
@@ -33,20 +39,40 @@ class GAN(object):
                 images=self.real_images,
                 labels=self.real_labels,
                 training=self.training,
+                progress=self.progress,
                 name="discriminator"
             )
             self.fake_logits = discriminator(
                 images=self.fake_images,
                 labels=self.fake_labels,
                 training=self.training,
+                progress=self.progress,
                 name="discriminator",
                 reuse=True
             )
             #========================================================================#
-            # hinge loss for discriminator and generator
-            self.discriminator_loss = tf.reduce_mean(tf.nn.relu(1 - self.real_logits))
-            self.discriminator_loss += tf.reduce_mean(tf.nn.relu(1 + self.fake_logits))
-            self.generator_loss = -tf.reduce_mean(self.fake_logits)
+            # loss functions from
+            # [Which Training Methods for GANs do actually Converge?]
+            # (https://arxiv.org/pdf/1801.04406.pdf)
+
+            self.discriminator_loss = tf.nn.softplus(self.fake_logits)
+            self.discriminator_loss += tf.nn.softplus(-self.real_logits)
+
+            # zero-centerd gradient penalty
+            if self.hyper_params.r1_gamma:
+                real_loss = tf.reduce_sum(self.real_logits)
+                real_grads = tf.gradients(real_loss, [self.real_images])[0]
+                r1_penalty = tf.reduce_sum(tf.square(real_grads), axis=[1, 2, 3])
+                self.discriminator_loss += 0.5 * self.hyper_params.r1_gamma * r1_penalty
+
+            # zero-centerd gradient penalty
+            if self.hyper_params.r2_gamma:
+                fake_loss = tf.reduce_sum(self.fake_logits)
+                fake_grads = tf.gradients(fake_loss, [self.fake_images])[0]
+                r2_penalty = tf.reduce_sum(tf.square(fake_grads), axis=[1, 2, 3])
+                self.discriminator_loss += 0.5 * self.hyper_params.r2_gamma * r2_penalty
+
+            self.generator_loss = tf.nn.softplus(-self.fake_logits)
             #========================================================================#
             # variables for discriminator and generator
             self.discriminator_variables = tf.get_collection(
@@ -106,6 +132,7 @@ class GAN(object):
     def initialize(self):
 
         session = tf.get_default_session()
+        session.run(tf.tables_initializer())
 
         checkpoint = tf.train.latest_checkpoint(self.name)
         if checkpoint:
@@ -121,7 +148,10 @@ class GAN(object):
         session = tf.get_default_session()
         writer = tf.summary.FileWriter(self.name, session.graph)
 
-        feed_dict = {self.training: True}
+        feed_dict = {
+            self.training: True,
+            self.total_steps: total_steps
+        }
 
         while True:
 
@@ -143,7 +173,7 @@ class GAN(object):
                     feed_dict=feed_dict
                 )
                 tf.logging.info("global_step: {}, discriminator_loss: {:.2f}, generator_loss: {:.2f}".format(
-                    global_step, discriminator_loss, generator_loss
+                    global_step. discriminator_loss, generator_loss
                 ))
 
                 summary = session.run(

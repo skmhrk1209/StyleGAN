@@ -18,7 +18,7 @@ from param import Param
 parser = argparse.ArgumentParser()
 parser.add_argument("--model_dir", type=str, default="sagan_model")
 parser.add_argument('--filenames', type=str, nargs="+", default=["celeba_train.tfrecord"])
-parser.add_argument("--batch_size", type=int, default=128)
+parser.add_argument("--batch_size", type=int, default=64)
 parser.add_argument("--total_steps", type=int, default=1000000)
 parser.add_argument("--train", action="store_true")
 parser.add_argument("--gpu", type=str, default="0")
@@ -37,7 +37,8 @@ with tf.Graph().as_default():
         min_resolution=[4, 4],
         max_resolution=[256, 256],
         min_channels=16,
-        max_channels=512
+        max_channels=512,
+        mapping_layers=8
     )
 
     gan = GAN(
@@ -59,12 +60,14 @@ with tf.Graph().as_default():
             ), [args.batch_size]), len(attr_counts))
         ),
         hyper_params=Param(
-            discriminator_learning_rate=4e-4,
+            discriminator_learning_rate=1e-3,
             discriminator_beta1=0.0,
-            discriminator_beta2=0.9,
-            generator_learning_rate=1e-4,
+            discriminator_beta2=0.99,
+            generator_learning_rate=1e-3,
             generator_beta1=0.0,
-            generator_beta2=0.9
+            generator_beta2=0.99,
+            r1_gamma=10.0,
+            r2_gamma=0.0
         ),
         name=args.model_dir
     )

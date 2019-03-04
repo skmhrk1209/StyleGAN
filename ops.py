@@ -19,7 +19,7 @@ def get_weight(shape, variance_scale=2, scale_weight=False):
     return weight
 
 
-def get_bias(shape, initializer):
+def get_bias(shape):
     bias = tf.get_variable(
         name="bias",
         shape=shape,
@@ -30,13 +30,13 @@ def get_bias(shape, initializer):
 
 def dense(inputs, units, use_bias=True, variance_scale=2, scale_weight=False):
     weight = get_weight(
-        shape=[inputs.shape[1], units],
+        shape=[inputs.shape[1].value, units],
         variance_scale=variance_scale,
         scale_weight=scale_weight
     )
     inputs = tf.matmul(inputs, weight)
     if use_bias:
-        bias = get_bias([inputs.shape[1]])
+        bias = get_bias([inputs.shape[1].value])
         inputs = tf.nn.bias_add(inputs, bias)
     return inputs
 
@@ -44,7 +44,7 @@ def dense(inputs, units, use_bias=True, variance_scale=2, scale_weight=False):
 def conv2d(inputs, filters, kernel_size, strides=[1, 1], use_bias=True,
            variance_scale=2, scale_weight=True):
     weight = get_weight(
-        shape=[*kernel_size, inputs.shape[1], filters],
+        shape=[*kernel_size, inputs.shape[1].value, filters],
         variance_scale=variance_scale,
         scale_weight=scale_weight
     )
@@ -56,7 +56,7 @@ def conv2d(inputs, filters, kernel_size, strides=[1, 1], use_bias=True,
         data_format="NCHW"
     )
     if use_bias:
-        bias = get_bias([inputs.shape[1]])
+        bias = get_bias([inputs.shape[1].value])
         inputs = tf.nn.bias_add(inputs, bias, data_format="NCHW")
     return inputs
 
@@ -64,7 +64,7 @@ def conv2d(inputs, filters, kernel_size, strides=[1, 1], use_bias=True,
 def conv2d_transpose(inputs, filters, kernel_size, strides=[1, 1], use_bias=True,
                      variance_scale=2, scale_weight=True):
     weight = get_weight(
-        shape=[*kernel_size, inputs.shape[1], filters],
+        shape=[*kernel_size, inputs.shape[1].value, filters],
         variance_scale=variance_scale,
         scale_weight=scale_weight
     )
@@ -80,7 +80,7 @@ def conv2d_transpose(inputs, filters, kernel_size, strides=[1, 1], use_bias=True
         data_format="NCHW"
     )
     if use_bias:
-        bias = get_bias([inputs.shape[1]])
+        bias = get_bias([inputs.shape[1].value])
         inputs = tf.nn.bias_add(inputs, bias, data_format="NCHW")
     return inputs
 
@@ -108,6 +108,16 @@ def downscale2d(inputs, factors=[2, 2]):
         padding="SAME",
         data_format="NCHW"
     )
+    return inputs
+
+
+def embed(inputs, units, variance_scale=2, scale_weight=False):
+    weight = get_weight(
+        shape=[inputs.shape[1].value, units],
+        variance_scale=variance_scale,
+        scale_weight=scale_weight
+    )
+    inputs = tf.nn.embedding_lookup(weight, tf.argmax(inputs, axis=1))
     return inputs
 
 

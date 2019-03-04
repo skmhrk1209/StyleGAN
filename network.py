@@ -11,12 +11,13 @@ def lerp(a, b, t): return t * a + (1. - t) * b
 
 class StyleGAN(object):
 
-    def __init__(self, min_resolution, max_resolution, min_channels, max_channels):
+    def __init__(self, min_resolution, max_resolution, min_channels, max_channels, mapping_layers):
 
         self.min_resolution = np.asanyarray(min_resolution)
         self.max_resolution = np.asanyarray(max_resolution)
         self.min_channels = min_channels
         self.max_channels = max_channels
+        self.mapping_layers = mapping_layers
 
         def log2(x): return 0 if (x == 1).all() else 1 + log2(x >> 1)
 
@@ -32,43 +33,126 @@ class StyleGAN(object):
         def conv_block(inputs, depth, reuse=tf.AUTO_REUSE):
             with tf.variable_scope("conv_block_{}x{}".format(*resolution(depth)), reuse=reuse):
                 if depth == self.min_depth:
-                    inputs = tf.reshape(inputs, [-1, inputs.shape[1], 1, 1])
-                    inputs = pixel_norm(inputs)
-                    with tf.variable_scope("conv_upscale"):
-                        inputs = conv2d_transpose(
-                            inputs=inputs,
-                            filters=channels(depth),
-                            kernel_size=resolution(depth).tolist(),
-                            strides=resolution(depth).tolist()
+                    # learned constant input
+                    with tf.variable_scope("const"):
+                        const = tf.get_variable(
+                            name="const",
+                            shape=[1, channels(depth), *resolution(depth)]
                         )
+                        inputs = tf.tile(const, [tf.shape(inputs)[0], 1, 1, 1])
+                        # apply learned per-channel scaling factors to the noise input
+                        with tf.variable_scope("noise"):
+                            noise = tf.random_normal([tf.shape(inputs)[0], 1, *inputs.shape[2:]])
+                            weight = tf.get_variable(
+                                name="weight",
+                                shape=[inputs.shape[1]],
+                                initializer=tf.initializers.zeros()
+                            )
+                            weight = tf.reshape(weight, [1, -1, 1, 1])
+                            inputs += noise * weight
                         inputs = tf.nn.leaky_relu(inputs)
-                        inputs = pixel_norm(inputs)
+                        # inputs = pixel_norm(inputs)
+                        # adaptive instance normalization (AdaIN)
+                        with tf.variable_scope("adaptive_instance_norm"):
+                            inputs = adaptive_instance_norm(
+                                inputs=inputs,
+                                latents=latents,
+                                use_bias=True,
+                                variance_scale=2,
+                                scale_weight=True
+                            )
                     with tf.variable_scope("conv"):
                         inputs = conv2d(
                             inputs=inputs,
                             filters=channels(depth),
-                            kernel_size=[3, 3]
+                            kernel_size=[3, 3],
+                            use_bias=True,
+                            variance_scale=2,
+                            scale_weight=True
                         )
+                        # apply learned per-channel scaling factors to the noise input
+                        with tf.variable_scope("noise"):
+                            noise = tf.random_normal([tf.shape(inputs)[0], 1, *inputs.shape[2:]])
+                            weight = tf.get_variable(
+                                name="weight",
+                                shape=[inputs.shape[1]],
+                                initializer=tf.initializers.zeros()
+                            )
+                            weight = tf.reshape(weight, [1, -1, 1, 1])
+                            inputs += noise * weight
                         inputs = tf.nn.leaky_relu(inputs)
-                        inputs = pixel_norm(inputs)
+                        # inputs = pixel_norm(inputs)
+                        # adaptive instance normalization (AdaIN)
+                        with tf.variable_scope("adaptive_instance_norm"):
+                            inputs = adaptive_instance_norm(
+                                inputs=inputs,
+                                latents=latents,
+                                use_bias=True,
+                                variance_scale=2,
+                                scale_weight=True
+                            )
                 else:
-                    with tf.variable_scope("conv_upscale"):
+                    with tf.variable_scope("upscale_conv"):
                         inputs = conv2d_transpose(
                             inputs=inputs,
                             filters=channels(depth),
                             kernel_size=[3, 3],
-                            strides=[2, 2]
+                            strides=[2, 2],
+                            use_bias=True,
+                            variance_scale=2,
+                            scale_weight=True
                         )
+                        # apply learned per-channel scaling factors to the noise input
+                        with tf.variable_scope("noise"):
+                            noise = tf.random_normal([tf.shape(inputs)[0], 1, *inputs.shape[2:]])
+                            weight = tf.get_variable(
+                                name="weight",
+                                shape=[inputs.shape[1]],
+                                initializer=tf.initializers.zeros()
+                            )
+                            weight = tf.reshape(weight, [1, -1, 1, 1])
+                            inputs += noise * weight
                         inputs = tf.nn.leaky_relu(inputs)
-                        inputs = pixel_norm(inputs)
+                        # inputs = pixel_norm(inputs)
+                        # adaptive instance normalization (AdaIN)
+                        with tf.variable_scope("adaptive_instance_norm"):
+                            inputs = adaptive_instance_norm(
+                                inputs=inputs,
+                                latents=latents,
+                                use_bias=True,
+                                variance_scale=2,
+                                scale_weight=True
+                            )
                     with tf.variable_scope("conv"):
                         inputs = conv2d(
                             inputs=inputs,
                             filters=channels(depth),
-                            kernel_size=[3, 3]
+                            kernel_size=[3, 3],
+                            use_bias=True,
+                            variance_scale=2,
+                            scale_weight=True
                         )
+                        # apply learned per-channel scaling factors to the noise input
+                        with tf.variable_scope("noise"):
+                            noise = tf.random_normal([tf.shape(inputs)[0], 1, *inputs.shape[2:]])
+                            weight = tf.get_variable(
+                                name="weight",
+                                shape=[inputs.shape[1]],
+                                initializer=tf.initializers.zeros()
+                            )
+                            weight = tf.reshape(weight, [1, -1, 1, 1])
+                            inputs += noise * weight
                         inputs = tf.nn.leaky_relu(inputs)
-                        inputs = pixel_norm(inputs)
+                        # inputs = pixel_norm(inputs)
+                        # adaptive instance normalization (AdaIN)
+                        with tf.variable_scope("adaptive_instance_norm"):
+                            inputs = adaptive_instance_norm(
+                                inputs=inputs,
+                                latents=latents,
+                                use_bias=True,
+                                variance_scale=2,
+                                scale_weight=True
+                            )
                 return inputs
 
         def color_block(inputs, depth, reuse=tf.AUTO_REUSE):
@@ -76,11 +160,14 @@ class StyleGAN(object):
                 with tf.variable_scope("conv"):
                     inputs = conv2d(
                         inputs=inputs,
-                        filters=2,
+                        filters=3,
                         kernel_size=[1, 1],
-                        variance_scale=1
+                        use_bias=True,
+                        variance_scale=1,
+                        scale_weight=True
                     )
-                    inputs = tf.nn.tanh(inputs)
+                    # linear activation
+                    # inputs = tf.nn.tanh(inputs)
                 return inputs
 
         def grow(feature_maps, depth):
@@ -128,6 +215,28 @@ class StyleGAN(object):
                 )
             return images
 
+        # label embedding
+        labels = embed(
+            inputs=labels,
+            units=latents.shape[1],
+            variance_scale=1,
+            scale_weight=True
+        )
+        latents = tf.concat([latents, labels], axis=1)
+        latents = pixel_norm(latents)
+
+        # mapping network
+        for i in range(self.mapping_layers):
+            with tf.variable_scope("mapping_layer_{}".format(i)):
+                latents = dense(
+                    inputs=latents,
+                    units=latents.shape[1],
+                    use_bias=True,
+                    variance_scale=2,
+                    scale_weight=True
+                )
+                latents = tf.nn.leaky_relu(latents)
+
         with tf.variable_scope(name, reuse=reuse):
             growing_depth = log((1 << self.min_depth) + progress * ((1 << (self.max_depth + 1)) - (1 << self.min_depth)), 2.)
             return grow(latents, self.min_depth)
@@ -141,39 +250,54 @@ class StyleGAN(object):
         def conv_block(inputs, depth, reuse=tf.AUTO_REUSE):
             with tf.variable_scope("conv_block_{}x{}".format(*resolution(depth)), reuse=reuse):
                 if depth == self.min_depth:
-                    inputs = batch_stddev(inputs)
+                    inputs = tf.concat([inputs, batch_stddev(inputs)], axis=1)
                     with tf.variable_scope("conv"):
                         inputs = conv2d(
                             inputs=inputs,
                             filters=channels(depth),
-                            kernel_size=[3, 3]
+                            kernel_size=[3, 3],
+                            use_bias=True,
+                            variance_scale=2,
+                            scale_weight=True
                         )
                         inputs = tf.nn.leaky_relu(inputs)
-                    with tf.variable_scope("conv_downscale"):
-                        inputs = conv2d(
+                    with tf.variable_scope("dense"):
+                        inputs = tf.layers.flatten(inputs)
+                        inputs = dense(
                             inputs=inputs,
-                            filters=channels(depth - 1),
-                            kernel_size=resolution(depth).tolist(),
-                            strides=resolution(depth).tolist()
+                            units=channels(depth - 1),
+                            use_bias=True,
+                            variance_scale=2,
+                            scale_weight=True
                         )
                         inputs = tf.nn.leaky_relu(inputs)
-                    inputs = tf.reshape(inputs, [-1, inputs.shape[1]])
                     with tf.variable_scope("logits"):
-                        logits = dense(
+                        inputs = dense(
                             inputs=inputs,
-                            units=1
+                            units=labels.shape[1],
+                            use_bias=True,
+                            variance_scale=1,
+                            scale_weight=True
                         )
-                    with tf.variable_scope("projection"):
-                        inputs = logits + projection(
-                            inputs=inputs,
-                            labels=labels
+                        # label conditioning from
+                        # [Which Training Methods for GANs do actually Converge?]
+                        # (https://arxiv.org/pdf/1801.04406.pdf)
+                        inputs *= tf.cast(labels, tf.float32)
+                        inputs = tf.reduce_sum(
+                            input_tensor=inputs,
+                            axis=1,
+                            keepdims=True
                         )
+
                 else:
                     with tf.variable_scope("conv"):
                         inputs = conv2d(
                             inputs=inputs,
                             filters=channels(depth),
-                            kernel_size=[3, 3]
+                            kernel_size=[3, 3],
+                            use_bias=True,
+                            variance_scale=2,
+                            scale_weight=True
                         )
                         inputs = tf.nn.leaky_relu(inputs)
                     with tf.variable_scope("conv_downscale"):
@@ -181,7 +305,10 @@ class StyleGAN(object):
                             inputs=inputs,
                             filters=channels(depth - 1),
                             kernel_size=[3, 3],
-                            strides=[2, 2]
+                            strides=[2, 2],
+                            use_bias=True,
+                            variance_scale=2,
+                            scale_weight=True
                         )
                         inputs = tf.nn.leaky_relu(inputs)
                 return inputs
@@ -192,7 +319,10 @@ class StyleGAN(object):
                     inputs = conv2d(
                         inputs=inputs,
                         filters=channels(depth),
-                        kernel_size=[1, 1]
+                        kernel_size=[1, 1],
+                        use_bias=True,
+                        variance_scale=2,
+                        scale_weight=True
                     )
                     inputs = tf.nn.leaky_relu(inputs)
                 return inputs
