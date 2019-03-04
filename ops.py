@@ -144,6 +144,7 @@ def adaptive_instance_norm(inputs, latents, use_bias=True, center=True, scale=Tr
         [Arbitrary Style Transfer in Real-time with Adaptive Instance Normalization]
         (https://arxiv.org/pdf/1703.06868.pdf)
     '''
+    # standard instance normalization
     inputs -= tf.reduce_mean(inputs, axis=[2, 3], keepdims=True)
     inputs *= tf.rsqrt(tf.reduce_mean(tf.square(inputs), axis=[2, 3], keepdims=True) + epsilon)
 
