@@ -111,7 +111,7 @@ def downscale2d(inputs, factors=[2, 2]):
     return inputs
 
 
-def embed(inputs, units, variance_scale=2, scale_weight=False):
+def embedding(inputs, units, variance_scale=2, scale_weight=False):
     weight = get_weight(
         shape=[inputs.shape[1].value, units],
         variance_scale=variance_scale,

@@ -37,7 +37,13 @@ with tf.Graph().as_default():
         max_resolution=[256, 256],
         min_channels=16,
         max_channels=512,
-        mapping_layers=8
+        mapping_layers=8,
+        growing_level=tf.cast(tf.get_variable(
+            name="global_step",
+            initializer=0,
+            trainable=False
+        ) / args.total_steps, tf.float32),
+        switching_level=tf.random_uniform([])
     )
 
     gan = GAN(
@@ -52,7 +58,7 @@ with tf.Graph().as_default():
             image_size=[256, 256]
         ),
         fake_input_fn=lambda: (
-            tf.random_normal([args.batch_size, 512]),
+            tuple(tf.random_normal([args.batch_size, 512]) for _ in range(2)),
             tf.one_hot(tf.reshape(tf.random.multinomial(
                 logits=tf.log([tf.cast(attr_counts, tf.float32)]),
                 num_samples=args.batch_size
@@ -68,7 +74,7 @@ with tf.Graph().as_default():
             r1_gamma=10.0,
             r2_gamma=0.0
         ),
-        name=args.model_dir
+        model_dir=args.model_dir
     )
 
     config = tf.ConfigProto(
