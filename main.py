@@ -38,11 +38,11 @@ with tf.Graph().as_default():
         min_channels=16,
         max_channels=512,
         mapping_layers=8,
-        growing_level=tf.get_variable(
+        growing_level=tf.cast(tf.get_variable(
             name="global_step",
             initializer=0,
             trainable=False
-        ) / args.total_steps,
+        ) / args.total_steps, tf.float32),
         switching_level=tf.random_uniform([])
     )
 
