@@ -179,3 +179,15 @@ def adaptive_instance_norm(inputs, latents, use_bias=True, center=True, scale=Tr
         inputs += beta
 
     return inputs
+
+
+def apply_noise(inputs):
+    noise = tf.random_normal([tf.shape(inputs)[0], 1, *inputs.shape[2:]])
+    weight = tf.get_variable(
+        name="weight",
+        shape=[inputs.shape[1]],
+        initializer=tf.initializers.zeros()
+    )
+    weight = tf.reshape(weight, [1, -1, 1, 1])
+    inputs += noise * weight
+    return inputs

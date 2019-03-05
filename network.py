@@ -42,14 +42,7 @@ class StyleGAN(object):
                         inputs = tf.tile(const, [tf.shape(inputs)[0], 1, 1, 1])
                         # apply learned per-channel scaling factors to the noise input
                         with tf.variable_scope("noise"):
-                            noise = tf.random_normal([tf.shape(inputs)[0], 1, *inputs.shape[2:]])
-                            weight = tf.get_variable(
-                                name="weight",
-                                shape=[inputs.shape[1]],
-                                initializer=tf.initializers.zeros()
-                            )
-                            weight = tf.reshape(weight, [1, -1, 1, 1])
-                            inputs += noise * weight
+                            inputs = apply_noise(inputs)
                         inputs = tf.nn.leaky_relu(inputs)
                         # inputs = pixel_norm(inputs)
                         # adaptive instance normalization (AdaIN)
@@ -72,14 +65,7 @@ class StyleGAN(object):
                         )
                         # apply learned per-channel scaling factors to the noise input
                         with tf.variable_scope("noise"):
-                            noise = tf.random_normal([tf.shape(inputs)[0], 1, *inputs.shape[2:]])
-                            weight = tf.get_variable(
-                                name="weight",
-                                shape=[inputs.shape[1]],
-                                initializer=tf.initializers.zeros()
-                            )
-                            weight = tf.reshape(weight, [1, -1, 1, 1])
-                            inputs += noise * weight
+                            inputs = apply_noise(inputs)
                         inputs = tf.nn.leaky_relu(inputs)
                         # inputs = pixel_norm(inputs)
                         # adaptive instance normalization (AdaIN)
@@ -104,14 +90,7 @@ class StyleGAN(object):
                         )
                         # apply learned per-channel scaling factors to the noise input
                         with tf.variable_scope("noise"):
-                            noise = tf.random_normal([tf.shape(inputs)[0], 1, *inputs.shape[2:]])
-                            weight = tf.get_variable(
-                                name="weight",
-                                shape=[inputs.shape[1]],
-                                initializer=tf.initializers.zeros()
-                            )
-                            weight = tf.reshape(weight, [1, -1, 1, 1])
-                            inputs += noise * weight
+                            inputs = apply_noise(inputs)
                         inputs = tf.nn.leaky_relu(inputs)
                         # inputs = pixel_norm(inputs)
                         # adaptive instance normalization (AdaIN)
@@ -134,14 +113,7 @@ class StyleGAN(object):
                         )
                         # apply learned per-channel scaling factors to the noise input
                         with tf.variable_scope("noise"):
-                            noise = tf.random_normal([tf.shape(inputs)[0], 1, *inputs.shape[2:]])
-                            weight = tf.get_variable(
-                                name="weight",
-                                shape=[inputs.shape[1]],
-                                initializer=tf.initializers.zeros()
-                            )
-                            weight = tf.reshape(weight, [1, -1, 1, 1])
-                            inputs += noise * weight
+                            inputs = apply_noise(inputs)
                         inputs = tf.nn.leaky_relu(inputs)
                         # inputs = pixel_norm(inputs)
                         # adaptive instance normalization (AdaIN)
