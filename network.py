@@ -88,7 +88,7 @@ class StyleGAN(object):
                                     inputs=inputs,
                                     latents=latents(depth),
                                     use_bias=True,
-                                    variance_scale=2,
+                                    variance_scale=1,
                                     scale_weight=True
                                 )
                         with tf.variable_scope("conv"):
@@ -111,7 +111,7 @@ class StyleGAN(object):
                                     inputs=inputs,
                                     latents=latents(depth),
                                     use_bias=True,
-                                    variance_scale=2,
+                                    variance_scale=1,
                                     scale_weight=True
                                 )
                     else:
@@ -136,7 +136,7 @@ class StyleGAN(object):
                                     inputs=inputs,
                                     latents=latents(depth),
                                     use_bias=True,
-                                    variance_scale=2,
+                                    variance_scale=1,
                                     scale_weight=True
                                 )
                         with tf.variable_scope("conv"):
@@ -159,7 +159,7 @@ class StyleGAN(object):
                                     inputs=inputs,
                                     latents=latents(depth),
                                     use_bias=True,
-                                    variance_scale=2,
+                                    variance_scale=1,
                                     scale_weight=True
                                 )
                     return inputs
