@@ -148,7 +148,7 @@ class GAN(object):
                     [self.discriminator_loss, self.generator_loss]
                 )
                 tf.logging.info("global_step: {}, discriminator_loss: {:.2f}, generator_loss: {:.2f}".format(
-                    global_step. discriminator_loss, generator_loss
+                    global_step, discriminator_loss, generator_loss
                 ))
 
                 writer.add_summary(
