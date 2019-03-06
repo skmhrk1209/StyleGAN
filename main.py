@@ -17,7 +17,7 @@ from param import Param
 parser = argparse.ArgumentParser()
 parser.add_argument("--model_dir", type=str, default="celeba_style_gan_model")
 parser.add_argument('--filenames', type=str, nargs="+", default=["celeba_train.tfrecord"])
-parser.add_argument("--batch_size", type=int, default=64)
+parser.add_argument("--batch_size", type=int, default=16)
 parser.add_argument("--total_steps", type=int, default=1000000)
 parser.add_argument("--train", action="store_true")
 parser.add_argument("--gpu", type=str, default="0")
@@ -59,10 +59,10 @@ with tf.Graph().as_default():
             tf.random_normal([args.batch_size, 512])
         ),
         hyper_params=Param(
-            discriminator_learning_rate=1e-3,
+            discriminator_learning_rate=2e-3,
             discriminator_beta1=0.0,
             discriminator_beta2=0.99,
-            generator_learning_rate=1e-3,
+            generator_learning_rate=2e-3,
             generator_beta1=0.0,
             generator_beta2=0.99,
             r1_gamma=10.0,
