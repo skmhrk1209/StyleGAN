@@ -111,8 +111,8 @@ class GAN(object):
         self.model_dir = model_dir
         self.saver = tf.train.Saver()
         self.summary = tf.summary.merge([
-            tf.summary.image("real_images", tf.transpose(self.real_images, [0, 2, 3, 1]), max_outputs=2),
-            tf.summary.image("fake_images", tf.transpose(self.fake_images, [0, 2, 3, 1]), max_outputs=2),
+            tf.summary.image("real_images", tf.transpose(self.real_images, [0, 2, 3, 1]), max_outputs=4),
+            tf.summary.image("fake_images", tf.transpose(self.fake_images, [0, 2, 3, 1]), max_outputs=4),
             tf.summary.scalar("discriminator_loss", self.discriminator_loss),
             tf.summary.scalar("generator_loss", self.generator_loss)
         ])
