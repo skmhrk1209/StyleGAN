@@ -22,8 +22,7 @@ def celeba_input_fn(filenames, batch_size, num_epochs, shuffle, image_size):
         image = tf.transpose(image, [2, 0, 1])
         image = image * 2.0 - 1.0
 
-        label = features["label"]
-        label = tf.cast(label, tf.int32)
+        label = tf.ones([1], tf.int32)
 
         return image, label
 
