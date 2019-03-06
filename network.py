@@ -30,17 +30,18 @@ class StyleGAN(object):
         self.growing_depth = log(1 + ((1 << (self.max_depth + 1)) - 1) * self.growing_level, 2.)
         self.switching_depth = tf.cast(tf.cast(self.max_depth, tf.float32) * self.switching_level, tf.int32)
 
-    def generator(self, high_level_latents, low_level_latents, labels, name="ganerator", reuse=None):
+    def generator(self, high_level_latents, low_level_latents, labels=None, name="ganerator", reuse=None):
 
         def mapping_network(latents, labels, reuse=tf.AUTO_REUSE):
             with tf.variable_scope("mapping_network", reuse=reuse):
-                labels = embedding(
-                    inputs=labels,
-                    units=latents.shape[1],
-                    variance_scale=1,
-                    scale_weight=True
-                )
-                latents = tf.concat([latents, labels], axis=1)
+                if labels:
+                    labels = embedding(
+                        inputs=labels,
+                        units=latents.shape[1],
+                        variance_scale=1,
+                        scale_weight=True
+                    )
+                    latents = tf.concat([latents, labels], axis=1)
                 latents = pixel_norm(latents)
                 for i in range(self.mapping_layers):
                     with tf.variable_scope("dense_block_{}".format(i)):
@@ -76,7 +77,7 @@ class StyleGAN(object):
                                 name="const",
                                 shape=[1, channels(depth), *resolution(depth)]
                             )
-                            inputs = tf.tile(const, [tf.shape(labels)[0], 1, 1, 1])
+                            inputs = tf.tile(const, [tf.shape(latents(depth))[0], 1, 1, 1])
                             # apply learned per-channel scaling factors to the noise input
                             with tf.variable_scope("apply_noise"):
                                 inputs = apply_noise(inputs)
@@ -233,7 +234,7 @@ class StyleGAN(object):
             images = systhesis_network(high_level_latents, low_level_latents)
             return images
 
-    def discriminator(self, images, labels, name="dicriminator", reuse=None):
+    def discriminator(self, images, labels=None, name="dicriminator", reuse=None):
 
         def resolution(depth): return self.min_resolution << depth
 
@@ -264,20 +265,29 @@ class StyleGAN(object):
                         )
                         inputs = tf.nn.leaky_relu(inputs)
                     with tf.variable_scope("logits"):
-                        inputs = dense(
-                            inputs=inputs,
-                            units=labels.shape[1],
-                            use_bias=True,
-                            variance_scale=1,
-                            scale_weight=True
-                        )
-                        # label conditioning from
-                        # [Which Training Methods for GANs do actually Converge?]
-                        # (https://arxiv.org/pdf/1801.04406.pdf)
-                        inputs = tf.gather_nd(
-                            params=inputs,
-                            indices=tf.where(labels)
-                        )
+                        if labels:
+                            # label conditioning from
+                            # [Which Training Methods for GANs do actually Converge?]
+                            # (https://arxiv.org/pdf/1801.04406.pdf)
+                            inputs = dense(
+                                inputs=inputs,
+                                units=labels.shape[1],
+                                use_bias=True,
+                                variance_scale=1,
+                                scale_weight=True
+                            )
+                            inputs = tf.gather_nd(
+                                params=inputs,
+                                indices=tf.where(labels)
+                            )
+                        else:
+                            inputs = dense(
+                                inputs=inputs,
+                                units=1,
+                                use_bias=True,
+                                variance_scale=1,
+                                scale_weight=True
+                            )
 
                 else:
                     with tf.variable_scope("conv"):

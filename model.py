@@ -10,26 +10,23 @@ class GAN(object):
     def __init__(self, discriminator, generator, real_input_fn, fake_input_fn, hyper_params, model_dir):
         # =========================================================================================
         # input_fn for real data and fake data
-        self.real_images, self.real_labels = real_input_fn()
-        (self.low_level_latents, self.high_level_latents), self.fake_labels = fake_input_fn()
+        self.real_images = real_input_fn()
+        self.low_level_latents, self.high_level_latents = fake_input_fn()
         # =========================================================================================
         # generated fake data
         self.fake_images = generator(
             high_level_latents=self.high_level_latents,
             low_level_latents=self.low_level_latents,
-            labels=self.fake_labels,
             name="generator"
         )
         # =========================================================================================
         # logits for real data and fake data
         self.real_logits = discriminator(
             images=self.real_images,
-            labels=self.real_labels,
             name="discriminator"
         )
         self.fake_logits = discriminator(
             images=self.fake_images,
-            labels=self.fake_labels,
             name="discriminator",
             reuse=True
         )

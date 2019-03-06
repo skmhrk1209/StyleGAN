@@ -25,9 +25,6 @@ args = parser.parse_args()
 
 tf.logging.set_verbosity(tf.logging.INFO)
 
-with open("attr_counts.pickle", "rb") as file:
-    attr_counts = pickle.load(file)
-
 with tf.Graph().as_default():
 
     tf.set_random_seed(0)
@@ -58,11 +55,8 @@ with tf.Graph().as_default():
             image_size=[256, 256]
         ),
         fake_input_fn=lambda: (
-            tuple(tf.random_normal([args.batch_size, 512]) for _ in range(2)),
-            tf.one_hot(tf.reshape(tf.random.multinomial(
-                logits=tf.log([tf.cast(attr_counts, tf.float32)]),
-                num_samples=args.batch_size
-            ), [args.batch_size]), len(attr_counts))
+            tf.random_normal([args.batch_size, 512]),
+            tf.random_normal([args.batch_size, 512])
         ),
         hyper_params=Param(
             discriminator_learning_rate=1e-3,
