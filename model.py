@@ -35,24 +35,27 @@ class GAN(object):
         # [Which Training Methods for GANs do actually Converge?]
         # (https://arxiv.org/pdf/1801.04406.pdf)
 
-        self.discriminator_loss = tf.nn.softplus(self.fake_logits)
-        self.discriminator_loss += tf.nn.softplus(-self.real_logits)
+        self.discriminator_loss = tf.nn.softplus(-self.real_logits)
+        self.discriminator_loss += tf.nn.softplus(self.fake_logits)
 
         # zero-centerd gradient penalty
         if hyper_params.r1_gamma:
-            real_loss = tf.reduce_sum(self.real_logits)
-            real_grads = tf.gradients(real_loss, [self.real_images])[0]
-            r1_penalty = tf.reduce_sum(tf.square(real_grads), axis=[1, 2, 3])
-            self.discriminator_loss += 0.5 * hyper_params.r1_gamma * r1_penalty
+            self.real_loss = tf.reduce_sum(self.real_logits)
+            self.real_grads = tf.gradients(self.real_loss, [self.real_images])[0]
+            self.r1_penalty = tf.reduce_sum(tf.square(self.real_grads), axis=[1, 2, 3])
+            self.discriminator_loss += 0.5 * hyper_params.r1_gamma * self.r1_penalty
 
         # zero-centerd gradient penalty
         if hyper_params.r2_gamma:
-            fake_loss = tf.reduce_sum(self.fake_logits)
-            fake_grads = tf.gradients(fake_loss, [self.fake_images])[0]
-            r2_penalty = tf.reduce_sum(tf.square(fake_grads), axis=[1, 2, 3])
-            self.discriminator_loss += 0.5 * hyper_params.r2_gamma * r2_penalty
+            self.fake_loss = tf.reduce_sum(self.fake_logits)
+            self.fake_grads = tf.gradients(self.fake_loss, [self.fake_images])[0]
+            self.r2_penalty = tf.reduce_sum(tf.square(self.fake_grads), axis=[1, 2, 3])
+            self.discriminator_loss += 0.5 * hyper_params.r2_gamma * self.r2_penalty
+
+        self.discriminator_loss = tf.reduce_mean(self.discriminator_loss)
 
         self.generator_loss = tf.nn.softplus(-self.fake_logits)
+        self.generator_loss = tf.reduce_mean(self.generator_loss)
         #========================================================================#
         # variables for discriminator and generator
         self.discriminator_variables = tf.get_collection(
