@@ -30,7 +30,7 @@ class StyleGAN(object):
         self.growing_depth = log(1 + ((1 << (self.max_depth + 1)) - 1) * self.growing_level, 2.)
         self.switching_depth = tf.cast(tf.cast(self.max_depth, tf.float32) * self.switching_level, tf.int32)
 
-    def generator(self, high_level_latents, low_level_latents, labels=None, name="ganerator", reuse=None):
+    def generator(self, high_level_latents, low_level_latents, labels=None, name="generator", reuse=None):
 
         def mapping_network(latents, labels, reuse=tf.AUTO_REUSE):
             with tf.variable_scope("mapping_network", reuse=reuse):
@@ -234,7 +234,7 @@ class StyleGAN(object):
             images = systhesis_network(high_level_latents, low_level_latents)
             return images
 
-    def discriminator(self, images, labels=None, name="dicriminator", reuse=None):
+    def discriminator(self, images, labels=None, name="discriminator", reuse=None):
 
         def resolution(depth): return self.min_resolution << depth
 

@@ -7,162 +7,136 @@ import os
 
 class GAN(object):
 
-    def __init__(self, discriminator, generator, real_input_fn, fake_input_fn, hyper_params, model_dir):
+    def __init__(self, generator, discriminator, real_input_fn, fake_input_fn, hyper_params):
+
         # =========================================================================================
-        # input_fn for real data and fake data
-        self.real_images = real_input_fn()
-        self.low_level_latents, self.high_level_latents = fake_input_fn()
+        real_images = real_input_fn()
+        high_level_latents, low_level_latents = fake_input_fn()
         # =========================================================================================
-        # generated fake data
-        self.fake_images = generator(
-            high_level_latents=self.high_level_latents,
-            low_level_latents=self.low_level_latents,
-            name="generator"
-        )
+        fake_images = generator(high_level_latents, low_level_latents)
         # =========================================================================================
-        # logits for real data and fake data
-        self.real_logits = discriminator(
-            images=self.real_images,
-            name="discriminator"
-        )
-        self.fake_logits = discriminator(
-            images=self.fake_images,
-            name="discriminator",
-            reuse=True
-        )
-        #========================================================================#
-        # loss functions from
+        real_logits = discriminator(real_images)
+        fake_logits = discriminator(fake_images)
+        # =========================================================================================
+        # Non-Saturating + Zero-Centered Gradient Penalty
+        # [Generative Adversarial Networks]
+        # (https://arxiv.org/abs/1406.2661)
         # [Which Training Methods for GANs do actually Converge?]
         # (https://arxiv.org/pdf/1801.04406.pdf)
-
-        self.discriminator_loss = tf.nn.softplus(-self.real_logits)
-        self.discriminator_loss += tf.nn.softplus(self.fake_logits)
-
-        # zero-centerd gradient penalty
-        if hyper_params.r1_gamma:
-            self.real_loss = tf.reduce_sum(self.real_logits)
-            self.real_grads = tf.gradients(self.real_loss, [self.real_images])[0]
-            self.r1_penalty = tf.reduce_sum(tf.square(self.real_grads), axis=[1, 2, 3])
-            self.discriminator_loss += 0.5 * hyper_params.r1_gamma * self.r1_penalty
-
-        # zero-centerd gradient penalty
-        if hyper_params.r2_gamma:
-            self.fake_loss = tf.reduce_sum(self.fake_logits)
-            self.fake_grads = tf.gradients(self.fake_loss, [self.fake_images])[0]
-            self.r2_penalty = tf.reduce_sum(tf.square(self.fake_grads), axis=[1, 2, 3])
-            self.discriminator_loss += 0.5 * hyper_params.r2_gamma * self.r2_penalty
-
-        self.discriminator_loss = tf.reduce_mean(self.discriminator_loss)
-
-        self.generator_loss = tf.nn.softplus(-self.fake_logits)
-        self.generator_loss = tf.reduce_mean(self.generator_loss)
-        #========================================================================#
-        # variables for discriminator and generator
-        self.discriminator_variables = tf.get_collection(
-            key=tf.GraphKeys.TRAINABLE_VARIABLES,
-            scope="discriminator"
-        )
-        self.generator_variables = tf.get_collection(
-            key=tf.GraphKeys.TRAINABLE_VARIABLES,
-            scope="generator"
-        )
-        #========================================================================#
-        # optimizer for discriminator and generator
-        self.discriminator_optimizer = tf.train.AdamOptimizer(
-            learning_rate=hyper_params.discriminator_learning_rate,
-            beta1=hyper_params.discriminator_beta1,
-            beta2=hyper_params.discriminator_beta2
-        )
-        self.generator_optimizer = tf.train.AdamOptimizer(
+        # -----------------------------------------------------------------------------------------
+        # generator
+        # non-saturating loss
+        generator_losses = tf.nn.softplus(-fake_logits)
+        # -----------------------------------------------------------------------------------------
+        # discriminator
+        # non-saturating loss
+        discriminator_losses = tf.nn.softplus(-real_logits)
+        discriminator_losses += tf.nn.softplus(fake_logits)
+        # zero-centerd gradient penalty on data distribution
+        if hyper_params.real_zero_centered_gradient_penalty_weight:
+            real_gradients = tf.gradients(real_logits, [real_images])[0]
+            real_gradient_penalties = tf.reduce_sum(tf.square(real_gradients), axis=[1, 2, 3])
+            discriminator_losses += 0.5 * hyper_params.real_zero_centered_gradient_penalty_weight * real_gradient_penalties
+        # zero-centerd gradient penalty on generator distribution
+        if hyper_params.fake_zero_centered_gradient_penalty_weight:
+            fake_gradients = tf.gradients(fake_logits, [fake_images])[0]
+            fake_gradient_penalties = tf.reduce_sum(tf.square(fake_gradients), axis=[1, 2, 3])
+            discriminator_losses += 0.5 * hyper_params.fake_zero_centered_gradient_penalty_weight * fake_gradient_penalties
+        # =========================================================================================
+        # losss reduction
+        self.generator_loss = tf.reduce_mean(generator_losses)
+        self.discriminator_loss = tf.reduce_mean(discriminator_losses)
+        # =========================================================================================
+        generator_optimizer = tf.train.AdamOptimizer(
             learning_rate=hyper_params.generator_learning_rate,
             beta1=hyper_params.generator_beta1,
             beta2=hyper_params.generator_beta2
         )
-        #========================================================================#
-        # global_step
-        with tf.variable_scope("", reuse=True):
-            self.global_step = tf.get_variable(name="global_step", dtype=tf.int32)
-        #========================================================================#
-        # training op for generator and discriminator
-        self.discriminator_train_op = self.discriminator_optimizer.minimize(
-            loss=self.discriminator_loss,
-            var_list=self.discriminator_variables
+        discriminator_optimizer = tf.train.AdamOptimizer(
+            learning_rate=hyper_params.discriminator_learning_rate,
+            beta1=hyper_params.discriminator_beta1,
+            beta2=hyper_params.discriminator_beta2
         )
-        self.generator_train_op = self.generator_optimizer.minimize(
+        # -----------------------------------------------------------------------------------------
+        generator_variables = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope="generator")
+        discriminator_variables = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope="discriminator")
+        # =========================================================================================
+        self.generator_train_op = generator_optimizer.minimize(
             loss=self.generator_loss,
-            var_list=self.generator_variables,
-            global_step=self.global_step
+            var_list=generator_variables,
+            global_step=tf.train.get_or_create_global_step()
         )
-        #========================================================================#
-        # update ops for discriminator and generator
-        # NOTE: tf.control_dependencies doesn't work
-        self.discriminator_update_ops = tf.get_collection(
-            key=tf.GraphKeys.UPDATE_OPS,
-            scope="discriminator"
+        self.discriminator_train_op = discriminator_optimizer.minimize(
+            loss=self.discriminator_loss,
+            var_list=discriminator_variables
         )
-        self.generator_update_ops = tf.get_collection(
-            key=tf.GraphKeys.UPDATE_OPS,
-            scope="generator"
+        # =========================================================================================
+        # scaffold
+        self.scaffold = tf.train.Scaffold(
+            init_op=tf.global_variables_initializer(),
+            local_init_op=tf.tables_initializer(),
+            saver=tf.train.Saver(
+                max_to_keep=10,
+                keep_checkpoint_every_n_hours=12,
+            ),
+            summary_op=tf.summary.merge([
+                tf.summary.image(
+                    name="real_images",
+                    tensor=tf.transpose(real_images, [0, 2, 3, 1]),
+                    max_outputs=4
+                ),
+                tf.summary.image(
+                    name="fake_images",
+                    tensor=tf.transpose(fake_images, [0, 2, 3, 1]),
+                    max_outputs=4
+                ),
+                tf.summary.scalar(
+                    name="generator_loss",
+                    tensor=self.generator_loss
+                ),
+                tf.summary.scalar(
+                    name="discriminator_loss",
+                    tensor=self.discriminator_loss
+                ),
+            ])
         )
-        self.discriminator_train_op = tf.group([self.discriminator_train_op, self.discriminator_update_ops])
-        self.generator_train_op = tf.group([self.generator_train_op, self.generator_update_ops])
-        #========================================================================#
-        # utilities
-        self.model_dir = model_dir
-        self.saver = tf.train.Saver()
-        self.summary = tf.summary.merge([
-            tf.summary.image("real_images", tf.transpose(self.real_images, [0, 2, 3, 1]), max_outputs=4),
-            tf.summary.image("fake_images", tf.transpose(self.fake_images, [0, 2, 3, 1]), max_outputs=4),
-            tf.summary.scalar("discriminator_loss", self.discriminator_loss),
-            tf.summary.scalar("generator_loss", self.generator_loss)
-        ])
 
-    def initialize(self):
+    def train(self, total_steps, model_dir, save_checkpoint_steps,
+              save_summary_steps, log_step_count_steps, config):
 
-        session = tf.get_default_session()
-        session.run(tf.tables_initializer())
-
-        checkpoint = tf.train.latest_checkpoint(self.model_dir)
-        if checkpoint:
-            self.saver.restore(session, checkpoint)
-            tf.logging.info("global variables in {} restored".format(self.model_dir))
-        else:
-            session.run(tf.global_variables_initializer())
-            tf.logging.info("global variables in {} initialized".format(self.model_dir))
-
-    def train(self, total_steps):
-
-        session = tf.get_default_session()
-        writer = tf.summary.FileWriter(self.model_dir, session.graph)
-
-        while True:
-
-            global_step = session.run(self.global_step)
-
-            session.run(self.discriminator_train_op)
-            session.run(self.generator_train_op)
-
-            if global_step % 100 == 0:
-
-                discriminator_loss, generator_loss = session.run(
-                    [self.discriminator_loss, self.generator_loss]
+        with tf.train.SingularMonitoredSession(
+            scaffold=self.scaffold,
+            checkpoint_dir=model_dir,
+            config=config,
+            hooks=[
+                tf.train.CheckpointSaverHook(
+                    checkpoint_dir=model_dir,
+                    save_steps=save_checkpoint_steps,
+                    scaffold=self.scaffold,
+                ),
+                tf.train.SummarySaverHook(
+                    output_dir=model_dir,
+                    save_steps=save_summary_steps,
+                    scaffold=self.scaffold
+                ),
+                tf.train.LoggingTensorHook(
+                    tensors=dict(
+                        global_step=tf.train.get_global_step(),
+                        generator_loss=self.generator_loss,
+                        discriminator_loss=self.discriminator_loss
+                    ),
+                    every_n_iter=log_step_count_steps,
+                ),
+                tf.train.StepCounterHook(
+                    output_dir=model_dir,
+                    every_n_steps=log_step_count_steps,
+                ),
+                tf.train.StopAtStepHook(
+                    last_step=total_steps
                 )
-                tf.logging.info("global_step: {}, discriminator_loss: {:.2f}, generator_loss: {:.2f}".format(
-                    global_step, discriminator_loss, generator_loss
-                ))
+            ]
+        ) as session:
 
-                writer.add_summary(
-                    summary=session.run(self.summary),
-                    global_step=global_step
-                )
-
-                if global_step % 1000 == 0:
-
-                    checkpoint = self.saver.save(
-                        sess=session,
-                        save_path=os.path.join(self.model_dir, "model.ckpt"),
-                        global_step=global_step
-                    )
-
-            if global_step == total_steps:
-                break
+            while not session.should_stop():
+                session.run(self.discriminator_train_op)
+                session.run(self.generator_train_op)

@@ -8,7 +8,6 @@ import tensorflow as tf
 import numpy as np
 import argparse
 import functools
-import pickle
 from dataset import celeba_input_fn
 from model import GAN
 from network import StyleGAN
@@ -65,20 +64,23 @@ with tf.Graph().as_default():
             generator_learning_rate=2e-3,
             generator_beta1=0.0,
             generator_beta2=0.99,
-            r1_gamma=10.0,
-            r2_gamma=0.0
-        ),
-        model_dir=args.model_dir
-    )
-
-    config = tf.ConfigProto(
-        gpu_options=tf.GPUOptions(
-            visible_device_list=args.gpu,
-            allow_growth=True
+            real_zero_centered_gradient_penalty_weight=10.0,
+            fake_zero_centered_gradient_penalty_weight=0.0,
         )
     )
 
-    with tf.Session(config=config) as session:
+    if args.train:
 
-        gan.initialize()
-        gan.train(args.total_steps)
+        gan.train(
+            total_steps=args.total_steps,
+            model_dir=args.model_dir,
+            save_checkpoint_steps=1000,
+            save_summary_steps=100,
+            log_step_count_steps=100,
+            config=tf.ConfigProto(
+                gpu_options=tf.GPUOptions(
+                    visible_device_list=args.gpu,
+                    allow_growth=True
+                )
+            )
+        )
