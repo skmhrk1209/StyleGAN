@@ -42,8 +42,8 @@ with tf.Graph().as_default():
     )
 
     gan = GAN(
-        discriminator=style_gan.discriminator,
         generator=style_gan.generator,
+        discriminator=style_gan.discriminator,
         real_input_fn=functools.partial(
             celeba_input_fn,
             filenames=args.filenames,
@@ -57,12 +57,12 @@ with tf.Graph().as_default():
             tf.random_normal([args.batch_size, 512])
         ),
         hyper_params=Param(
-            discriminator_learning_rate=2e-3,
-            discriminator_beta1=0.0,
-            discriminator_beta2=0.99,
             generator_learning_rate=2e-3,
             generator_beta1=0.0,
             generator_beta2=0.99,
+            discriminator_learning_rate=2e-3,
+            discriminator_beta1=0.0,
+            discriminator_beta2=0.99,
             real_zero_centered_gradient_penalty_weight=10.0,
             fake_zero_centered_gradient_penalty_weight=0.0,
         )
