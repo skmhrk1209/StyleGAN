@@ -2,6 +2,10 @@ import tensorflow as tf
 import os
 
 
+def linear_map(inputs, in_min, in_max, out_min, out_max):
+    return out_min + (inputs - in_min) / (in_max - in_min) * (out_max - out_min)
+
+
 def celeba_input_fn(filenames, batch_size, num_epochs, shuffle, image_size):
 
     def parse_example(example):
@@ -19,7 +23,7 @@ def celeba_input_fn(filenames, batch_size, num_epochs, shuffle, image_size):
         image = tf.image.resize_images(image, image_size)
         image = tf.image.random_flip_left_right(image)
         image = tf.transpose(image, [2, 0, 1])
-        image = image * 2.0 - 1.0
+        image = linear_map(image, 0., 1., -1., 1.)
 
         return image
 
