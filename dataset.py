@@ -17,6 +17,7 @@ def celeba_input_fn(filenames, batch_size, num_epochs, shuffle, image_size):
         image = tf.image.decode_jpeg(image, 3)
         image = tf.image.convert_image_dtype(image, tf.float32)
         image = tf.image.resize_images(image, image_size)
+        image = tf.image.random_flip_left_right(image)
         image = tf.transpose(image, [2, 0, 1])
         image = image * 2.0 - 1.0
 
