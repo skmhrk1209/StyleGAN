@@ -1,4 +1,5 @@
 import tensorflow as tf
+from utils import Struct
 
 
 class GAN(object):
@@ -7,9 +8,9 @@ class GAN(object):
 
         # =========================================================================================
         real_images = real_input_fn()
-        high_level_latents, low_level_latents = fake_input_fn()
+        fake_high_latents, fake_low_latents = fake_input_fn()
         # =========================================================================================
-        fake_images = generator(high_level_latents, low_level_latents)
+        fake_images = generator(fake_high_latents, fake_low_latents)
         # =========================================================================================
         real_logits = discriminator(real_images)
         fake_logits = discriminator(fake_images)
@@ -40,8 +41,8 @@ class GAN(object):
             discriminator_losses += 0.5 * hyper_params.fake_zero_centered_gradient_penalty_weight * fake_gradient_penalties
         # =========================================================================================
         # losss reduction
-        self.generator_loss = tf.reduce_mean(generator_losses)
-        self.discriminator_loss = tf.reduce_mean(discriminator_losses)
+        generator_loss = tf.reduce_mean(generator_losses)
+        discriminator_loss = tf.reduce_mean(discriminator_losses)
         # =========================================================================================
         generator_optimizer = tf.train.AdamOptimizer(
             learning_rate=hyper_params.generator_learning_rate,
@@ -57,14 +58,26 @@ class GAN(object):
         generator_variables = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope="generator")
         discriminator_variables = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope="discriminator")
         # =========================================================================================
-        self.generator_train_op = generator_optimizer.minimize(
+        generator_train_op = generator_optimizer.minimize(
             loss=self.generator_loss,
             var_list=generator_variables,
             global_step=tf.train.get_or_create_global_step()
         )
-        self.discriminator_train_op = discriminator_optimizer.minimize(
+        discriminator_train_op = discriminator_optimizer.minimize(
             loss=self.discriminator_loss,
             var_list=discriminator_variables
+        )
+        # =========================================================================================
+        # tensors and operations used later
+        self.operations = Struct(
+            generator_train_op=generator_train_op,
+            discriminator_train_op=discriminator_train_op
+        )
+        self.tensors = Struct(
+            real_images=real_images,
+            fake_images=fake_images,
+            generator_loss=generator_loss,
+            discriminator_loss=discriminator_loss
         )
         # =========================================================================================
         # scaffold
@@ -88,16 +101,16 @@ class GAN(object):
                 ),
                 tf.summary.scalar(
                     name="generator_loss",
-                    tensor=self.generator_loss
+                    tensor=generator_loss
                 ),
                 tf.summary.scalar(
                     name="discriminator_loss",
-                    tensor=self.discriminator_loss
+                    tensor=discriminator_loss
                 ),
             ])
         )
 
-    def train(self, total_steps, model_dir, save_checkpoint_steps,
+    def train(self, model_dir, total_steps, save_checkpoint_steps,
               save_summary_steps, log_step_count_steps, config):
 
         with tf.train.SingularMonitoredSession(
@@ -118,8 +131,8 @@ class GAN(object):
                 tf.train.LoggingTensorHook(
                     tensors=dict(
                         global_step=tf.train.get_global_step(),
-                        generator_loss=self.generator_loss,
-                        discriminator_loss=self.discriminator_loss
+                        generator_loss=self.tensors.generator_loss,
+                        discriminator_loss=self.tensors.discriminator_loss
                     ),
                     every_n_iter=log_step_count_steps,
                 ),
@@ -134,5 +147,5 @@ class GAN(object):
         ) as session:
 
             while not session.should_stop():
-                session.run(self.discriminator_train_op)
-                session.run(self.generator_train_op)
+                session.run(self.operations.discriminator_train_op)
+                session.run(self.operations.generator_train_op)

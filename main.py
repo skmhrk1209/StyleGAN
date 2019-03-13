@@ -10,7 +10,7 @@ import functools
 from dataset import celeba_input_fn
 from model import GAN
 from network import StyleGAN
-from param import Param
+from utils import Struct
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--model_dir", type=str, default="celeba_style_gan_model")
@@ -33,11 +33,10 @@ with tf.Graph().as_default():
         min_channels=16,
         max_channels=512,
         mapping_layers=8,
-        growing_level=tf.cast(tf.get_variable(
-            name="global_step",
-            initializer=0,
-            trainable=False
-        ) / args.total_steps, tf.float32),
+        growing_level=tf.cast(tf.divide(
+            x=tf.train.create_global_step(),
+            y=args.total_steps
+        ), tf.float32),
         switching_level=tf.random_uniform([])
     )
 
@@ -56,7 +55,7 @@ with tf.Graph().as_default():
             tf.random_normal([args.batch_size, 512]),
             tf.random_normal([args.batch_size, 512])
         ),
-        hyper_params=Param(
+        hyper_params=Struct(
             generator_learning_rate=2e-3,
             generator_beta1=0.0,
             generator_beta2=0.99,
@@ -71,8 +70,8 @@ with tf.Graph().as_default():
     if args.train:
 
         gan.train(
-            total_steps=args.total_steps,
             model_dir=args.model_dir,
+            total_steps=args.total_steps,
             save_checkpoint_steps=1000,
             save_summary_steps=100,
             log_step_count_steps=100,
