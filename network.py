@@ -115,6 +115,7 @@ class StyleGAN(object):
                                     variance_scale=1,
                                     scale_weight=True
                                 )
+                        return inputs
                     else:
                         with tf.variable_scope("upscale_conv"):
                             inputs = conv2d_transpose(
@@ -163,7 +164,7 @@ class StyleGAN(object):
                                     variance_scale=1,
                                     scale_weight=True
                                 )
-                    return inputs
+                        return inputs
 
             def color_block(inputs, depth, reuse=tf.AUTO_REUSE):
                 with tf.variable_scope("color_block_{}x{}".format(*resolution(depth)), reuse=reuse):
@@ -256,39 +257,39 @@ class StyleGAN(object):
                         inputs = tf.nn.leaky_relu(inputs)
                     with tf.variable_scope("dense"):
                         inputs = tf.layers.flatten(inputs)
-                        inputs = dense(
+                        features = dense(
                             inputs=inputs,
                             units=channels(depth - 1),
                             use_bias=True,
                             variance_scale=2,
                             scale_weight=True
                         )
-                        inputs = tf.nn.leaky_relu(inputs)
+                        features = tf.nn.leaky_relu(features)
                     with tf.variable_scope("logits"):
                         if labels:
                             # label conditioning from
                             # [Which Training Methods for GANs do actually Converge?]
                             # (https://arxiv.org/pdf/1801.04406.pdf)
-                            inputs = dense(
-                                inputs=inputs,
+                            logits = dense(
+                                inputs=features,
                                 units=labels.shape[1],
                                 use_bias=True,
                                 variance_scale=1,
                                 scale_weight=True
                             )
-                            inputs = tf.gather_nd(
-                                params=inputs,
+                            logits = tf.gather_nd(
+                                params=logits,
                                 indices=tf.where(labels)
                             )
                         else:
-                            inputs = dense(
-                                inputs=inputs,
+                            logits = dense(
+                                inputs=features,
                                 units=1,
                                 use_bias=True,
                                 variance_scale=1,
                                 scale_weight=True
                             )
-
+                    return features, logits
                 else:
                     with tf.variable_scope("conv"):
                         inputs = conv2d(
@@ -311,7 +312,7 @@ class StyleGAN(object):
                             scale_weight=True
                         )
                         inputs = tf.nn.leaky_relu(inputs)
-                return inputs
+                    return inputs
 
         def color_block(inputs, depth, reuse=tf.AUTO_REUSE):
             with tf.variable_scope("color_block_{}x{}".format(*resolution(depth)), reuse=reuse):

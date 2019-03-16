@@ -1,5 +1,6 @@
 import tensorflow as tf
 import os
+from utils import Struct
 
 
 def linear_map(inputs, in_min, in_max, out_min, out_max):
@@ -9,15 +10,12 @@ def linear_map(inputs, in_min, in_max, out_min, out_max):
 def celeba_input_fn(filenames, batch_size, num_epochs, shuffle, image_size):
 
     def parse_example(example):
-        features = tf.parse_single_example(
+        features = Struct(tf.parse_single_example(
             serialized=example,
-            features={
-                "path": tf.FixedLenFeature([], dtype=tf.string),
-                "label": tf.FixedLenFeature([40], dtype=tf.int64),
-            }
-        )
+            features=dict(path=tf.FixedLenFeature([], dtype=tf.string))
+        ))
 
-        image = tf.read_file(features["path"])
+        image = tf.read_file(features.path)
         image = tf.image.decode_jpeg(image, 3)
         image = tf.image.convert_image_dtype(image, tf.float32)
         image = tf.image.resize_images(image, image_size)
@@ -44,9 +42,6 @@ def celeba_input_fn(filenames, batch_size, num_epochs, shuffle, image_size):
     dataset = dataset.batch(batch_size=batch_size)
     dataset = dataset.prefetch(buffer_size=1)
 
-    iterator = dataset.make_initializable_iterator()
-
-    tf.add_to_collection(tf.GraphKeys.SAVEABLE_OBJECTS, tf.data.experimental.make_saveable_from_iterator(iterator))
-    tf.add_to_collection(tf.GraphKeys.TABLE_INITIALIZERS, iterator.initializer)
+    iterator = dataset.make_one_shot_iterator()
 
     return iterator.get_next()
