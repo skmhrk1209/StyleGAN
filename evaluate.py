@@ -1,4 +1,5 @@
 import tensorflow as tf
+import tensorflow_hub as hub
 import numpy as np
 import argparse
 import metrics
@@ -44,8 +45,17 @@ with tf.Graph().as_default():
         tf.random_normal([args.batch_size, 512])
     )
 
-    real_features, _ = style_gan.discriminator(real_images)
-    fake_features, _ = style_gan.discriminator(fake_images)
+    inception = hub.Module("https://tfhub.dev/google/imagenet/inception_v3/feature_vector/1")
+    image_size = hub.get_expected_image_size(inception)
+
+    real_images = tf.transpose(real_images, [0, 2, 3, 1])
+    real_images = tf.image.resize_images(real_images, image_size)
+
+    fake_images = tf.transpose(fake_images, [0, 2, 3, 1])
+    fake_images = tf.image.resize_images(fake_images, image_size)
+
+    real_features = inception(real_images)
+    fake_features = inception(fake_images)
 
     with tf.train.SingularMonitoredSession(
         scaffold=tf.train.Scaffold(
