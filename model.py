@@ -41,12 +41,12 @@ class GAN(object):
         if hyper_params.real_gradient_penalty_weight:
             train_real_gradients = tf.gradients(train_real_logits, [train_real_images])[0]
             train_real_gradient_penalties = tf.reduce_sum(tf.square(train_real_gradients), axis=[1, 2, 3])
-            train_discriminator_losses += 0.5 * hyper_params.real_gradient_penalty_weight * train_real_gradient_penalties
+            train_discriminator_losses += train_real_gradient_penalties * hyper_params.real_gradient_penalty_weight
         # zero-centerd gradient penalty on generator distribution
         if hyper_params.fake_gradient_penalty_weight:
             train_fake_gradients = tf.gradients(train_fake_logits, [train_fake_images])[0]
             train_fake_gradient_penalties = tf.reduce_sum(tf.square(train_fake_gradients), axis=[1, 2, 3])
-            train_discriminator_losses += 0.5 * hyper_params.fake_gradient_penalty_weight * train_fake_gradient_penalties
+            train_discriminator_losses += train_fake_gradient_penalties * hyper_params.fake_gradient_penalty_weight
         # -----------------------------------------------------------------------------------------
         # losss reduction
         train_generator_loss = tf.reduce_mean(train_generator_losses)
@@ -62,12 +62,12 @@ class GAN(object):
         if hyper_params.real_gradient_penalty_weight:
             valid_real_gradients = tf.gradients(valid_real_logits, [valid_real_images])[0]
             valid_real_gradient_penalties = tf.reduce_sum(tf.square(valid_real_gradients), axis=[1, 2, 3])
-            valid_discriminator_losses += 0.5 * hyper_params.real_gradient_penalty_weight * valid_real_gradient_penalties
+            valid_discriminator_losses += valid_real_gradient_penalties * hyper_params.real_gradient_penalty_weight
         # zero-centerd gradient penalty on generator distribution
         if hyper_params.fake_gradient_penalty_weight:
             valid_fake_gradients = tf.gradients(valid_fake_logits, [valid_fake_images])[0]
             valid_fake_gradient_penalties = tf.reduce_sum(tf.square(valid_fake_gradients), axis=[1, 2, 3])
-            valid_discriminator_losses += 0.5 * hyper_params.fake_gradient_penalty_weight * valid_fake_gradient_penalties
+            valid_discriminator_losses += valid_fake_gradient_penalties * hyper_params.fake_gradient_penalty_weight
         # -----------------------------------------------------------------------------------------
         # losss reduction
         valid_generator_loss = tf.reduce_mean(valid_generator_losses)
