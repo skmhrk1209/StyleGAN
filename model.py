@@ -71,6 +71,7 @@ class GAN(object):
             generator_train_op=generator_train_op
         )
         self.tensors = Struct(
+            global_step=tf.train.get_global_step(),
             real_images=tf.transpose(real_images, [0, 2, 3, 1]),
             fake_images=tf.transpose(fake_images, [0, 2, 3, 1]),
             generator_loss=generator_loss,
