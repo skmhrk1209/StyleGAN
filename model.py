@@ -1,5 +1,14 @@
 import tensorflow as tf
+import tensorflow_hub as hub
+import numpy as np
+import skimage
+import metrics
+from pathlib import Path
 from utils import Struct
+
+
+def linear_map(inputs, in_min, in_max, out_min, out_max):
+    return out_min + (inputs - in_min) / (in_max - in_min) * (out_max - out_min)
 
 
 class GAN(object):
@@ -124,3 +133,58 @@ class GAN(object):
             while not session.should_stop():
                 for name, operation in self.operations.items():
                     session.run(operation)
+
+    def evaluate(self, model_dir, config):
+
+        inception = hub.Module("https://tfhub.dev/google/imagenet/inception_v3/feature_vector/1")
+        image_size = hub.get_expected_image_size(inception)
+
+        real_features = inception(tf.image.resize_images(self.tensors.real_images, image_size))
+        fake_features = inception(tf.image.resize_images(self.tensors.fake_images, image_size))
+
+        with tf.train.SingularMonitoredSession(
+            scaffold=tf.train.Scaffold(
+                init_op=tf.global_variables_initializer(),
+                local_init_op=tf.group(
+                    tf.local_variables_initializer(),
+                    tf.tables_initializer()
+                )
+            ),
+            checkpoint_dir=model_dir,
+            config=config
+        ) as session:
+
+            def generator():
+                while True:
+                    try:
+                        yield session.run([real_features, fake_features])
+                    except tf.errors.OutOfRangeError:
+                        break
+
+            frechet_inception_distance = metrics.frechet_inception_distance(*map(np.concatenate, zip(*generator())))
+            tf.logging.info("frechet_inception_distance: {}".format(frechet_inception_distance))
+
+    def generate(self, model_dir, config):
+
+        with tf.train.SingularMonitoredSession(
+            scaffold=tf.train.Scaffold(
+                init_op=tf.global_variables_initializer(),
+                local_init_op=tf.group(
+                    tf.local_variables_initializer(),
+                    tf.tables_initializer()
+                )
+            ),
+            checkpoint_dir=model_dir,
+            config=config
+        ) as session:
+
+            sample_dir = Path("samples")
+
+            if not sample_dir.exists():
+                sample_dir.mkdir(parents=True, exist_ok=True)
+
+            for fake_image in session.run(self.tensors.fake_images):
+                skimage.io.imsave(
+                    fname=sample_dir / "{}.jpg".format(len(list(sample_dir.glob("*.jpg")))),
+                    arr=linear_map(fake_image, -1.0, 1.0, 0.0, 255.0).astype(np.uint8).clip(0, 255)
+                )

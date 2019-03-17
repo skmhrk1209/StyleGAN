@@ -18,6 +18,9 @@ parser.add_argument('--filenames', type=str, nargs="+", default=["celeba_train.t
 parser.add_argument("--batch_size", type=int, default=16)
 parser.add_argument("--num_epochs", type=int, default=None)
 parser.add_argument("--total_steps", type=int, default=1000000)
+parser.add_argument('--train', action="store_true")
+parser.add_argument('--evaluate', action="store_true")
+parser.add_argument('--generate', action="store_true")
 parser.add_argument("--gpu", type=str, default="0")
 args = parser.parse_args()
 
@@ -67,16 +70,39 @@ with tf.Graph().as_default():
         )
     )
 
-    gan.train(
-        model_dir=args.model_dir,
-        total_steps=args.total_steps,
-        save_checkpoint_steps=10000,
-        save_summary_steps=1000,
-        log_tensor_steps=1000,
-        config=tf.ConfigProto(
-            gpu_options=tf.GPUOptions(
-                visible_device_list=args.gpu,
-                allow_growth=True
+    if args.train:
+        gan.train(
+            model_dir=args.model_dir,
+            total_steps=args.total_steps,
+            save_checkpoint_steps=10000,
+            save_summary_steps=1000,
+            log_tensor_steps=1000,
+            config=tf.ConfigProto(
+                gpu_options=tf.GPUOptions(
+                    visible_device_list=args.gpu,
+                    allow_growth=True
+                )
             )
         )
-    )
+
+    if args.evaluate:
+        gan.evaluate(
+            model_dir=args.model_dir,
+            config=tf.ConfigProto(
+                gpu_options=tf.GPUOptions(
+                    visible_device_list=args.gpu,
+                    allow_growth=True
+                )
+            )
+        )
+
+    if args.generate:
+        gan.generate(
+            model_dir=args.model_dir,
+            config=tf.ConfigProto(
+                gpu_options=tf.GPUOptions(
+                    visible_device_list=args.gpu,
+                    allow_growth=True
+                )
+            )
+        )
