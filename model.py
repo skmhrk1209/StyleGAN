@@ -1,14 +1,6 @@
 import tensorflow as tf
-import tensorflow_hub as hub
 import numpy as np
-import skimage
 import metrics
-from pathlib import Path
-from utils import Struct
-
-
-def linear_map(inputs, in_min, in_max, out_min, out_max):
-    return out_min + (inputs - in_min) / (in_max - in_min) * (out_max - out_min)
 
 
 class GAN(object):
@@ -18,8 +10,8 @@ class GAN(object):
         real_images = real_input_fn()
         fake_images = generator(*fake_input_fn())
         # =========================================================================================
-        real_features, real_logits = discriminator(real_images)
-        fake_features, fake_logits = discriminator(fake_images)
+        real_logits = discriminator(real_images)
+        fake_logits = discriminator(fake_images)
         real_logits = tf.squeeze(real_logits, axis=1)
         fake_logits = tf.squeeze(fake_logits, axis=1)
         # =========================================================================================
@@ -74,18 +66,12 @@ class GAN(object):
             var_list=discriminator_variables
         )
         # =========================================================================================
-        # tensors and operations used later
-        self.operations = Struct(
-            discriminator_train_op=discriminator_train_op,
-            generator_train_op=generator_train_op
-        )
-        self.tensors = Struct(
-            global_step=tf.train.get_global_step(),
-            real_images=tf.transpose(real_images, [0, 2, 3, 1]),
-            fake_images=tf.transpose(fake_images, [0, 2, 3, 1]),
-            generator_loss=generator_loss,
-            discriminator_loss=discriminator_loss
-        )
+        self.real_images = tf.transpose(real_images, [0, 2, 3, 1])
+        self.fake_images = tf.transpose(fake_images, [0, 2, 3, 1])
+        self.generator_loss = generator_loss
+        self.discriminator_loss = discriminator_loss
+        self.generator_train_op = generator_train_op
+        self.discriminator_train_op = discriminator_train_op
 
     def train(self, model_dir, total_steps, save_checkpoint_steps, save_summary_steps, log_tensor_steps, config):
 
@@ -111,17 +97,29 @@ class GAN(object):
                 tf.train.SummarySaverHook(
                     output_dir=model_dir,
                     save_steps=save_summary_steps,
-                    summary_op=tf.summary.merge([
-                        tf.summary.scalar(name=name, tensor=tensor) if tensor.shape.ndims == 0 else
-                        tf.summary.image(name=name, tensor=tensor, max_outputs=4)
-                        for name, tensor in self.tensors.items()
-                    ])
+                    summary_op=tf.summary.merge(list(map(
+                        lambda name_tensor: tf.summary.image(*name_tensor), dict(
+                            real_images=self.real_images,
+                            fake_images=self.fake_images
+                        ).items()
+                    )))
+                ),
+                tf.train.SummarySaverHook(
+                    output_dir=model_dir,
+                    save_steps=save_summary_steps,
+                    summary_op=tf.summary.merge(list(map(
+                        lambda name_tensor: tf.summary.scalar(*name_tensor), dict(
+                            generator_loss=self.generator_loss,
+                            discriminator_loss=self.discriminator_loss
+                        ).items()
+                    )))
                 ),
                 tf.train.LoggingTensorHook(
-                    tensors={
-                        name: tensor for name, tensor in self.tensors.items()
-                        if tensor.shape.ndims == 0
-                    },
+                    tensors=dict(
+                        global_step=tf.train.get_global_step(),
+                        generator_loss=self.generator_loss,
+                        discriminator_loss=self.discriminator_loss
+                    ),
                     every_n_iter=log_tensor_steps,
                 ),
                 tf.train.StopAtStepHook(
@@ -131,16 +129,19 @@ class GAN(object):
         ) as session:
 
             while not session.should_stop():
-                for name, operation in self.operations.items():
-                    session.run(operation)
+                session.run(self.discriminator_train_op)
+                session.run(self.generator_train_op)
 
     def evaluate(self, model_dir, config):
 
-        inception = hub.Module("https://tfhub.dev/google/imagenet/inception_v3/feature_vector/1")
-        image_size = hub.get_expected_image_size(inception)
-
-        real_features = inception(tf.image.resize_images(self.tensors.real_images, image_size))
-        fake_features = inception(tf.image.resize_images(self.tensors.fake_images, image_size))
+        real_features = tf.contrib.gan.eval.run_inception(
+            images=tf.contrib.gan.eval.preprocess_image(self.real_images),
+            output_tensor="pool_3:0"
+        )
+        fake_features = tf.contrib.gan.eval.run_inception(
+            images=tf.contrib.gan.eval.preprocess_image(self.fake_images),
+            output_tensor="pool_3:0"
+        )
 
         with tf.train.SingularMonitoredSession(
             scaffold=tf.train.Scaffold(
@@ -157,37 +158,9 @@ class GAN(object):
             def generator():
                 while True:
                     try:
-                        yield session.run([real_features, fake_features])
+                        yield session.run([self.real_features, self.fake_features])
                     except tf.errors.OutOfRangeError:
                         break
 
             frechet_inception_distance = metrics.frechet_inception_distance(*map(np.concatenate, zip(*generator())))
             tf.logging.info("frechet_inception_distance: {}".format(frechet_inception_distance))
-
-    def generate(self, model_dir, sample_dir, config):
-
-        with tf.train.SingularMonitoredSession(
-            scaffold=tf.train.Scaffold(
-                init_op=tf.global_variables_initializer(),
-                local_init_op=tf.group(
-                    tf.local_variables_initializer(),
-                    tf.tables_initializer()
-                )
-            ),
-            checkpoint_dir=model_dir,
-            config=config
-        ) as session:
-
-            sample_dir = Path(sample_dir)
-
-            if not sample_dir.exists():
-                sample_dir.mkdir(parents=True, exist_ok=True)
-
-            def unnormalize(inputs, mean, std):
-                return inputs * std + mean
-
-            for fake_image in session.run(self.tensors.fake_images):
-                skimage.io.imsave(
-                    fname=sample_dir / "{}.jpg".format(len(list(sample_dir.glob("*.jpg")))),
-                    arr=unnormalize(fake_image, 0.5, 0.5)
-                )

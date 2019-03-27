@@ -264,21 +264,21 @@ class StyleGAN(object):
                         inputs = tf.nn.leaky_relu(inputs)
                     with tf.variable_scope("dense"):
                         inputs = tf.layers.flatten(inputs)
-                        features = dense(
+                        inputs = dense(
                             inputs=inputs,
                             units=channels(depth - 1),
                             use_bias=True,
                             variance_scale=2,
                             scale_weight=True
                         )
-                        features = tf.nn.leaky_relu(features)
+                        inputs = tf.nn.leaky_relu(inputs)
                     with tf.variable_scope("logits"):
-                        if labels:
+                        if labels is not None:
                             # label conditioning from
                             # [Which Training Methods for GANs do actually Converge?]
                             # (https://arxiv.org/pdf/1801.04406.pdf)
                             logits = dense(
-                                inputs=features,
+                                inputs=inputs,
                                 units=labels.shape[1],
                                 use_bias=True,
                                 variance_scale=1,
@@ -290,13 +290,13 @@ class StyleGAN(object):
                             )
                         else:
                             logits = dense(
-                                inputs=features,
+                                inputs=inputs,
                                 units=1,
                                 use_bias=True,
                                 variance_scale=1,
                                 scale_weight=True
                             )
-                    return features, logits
+                    return logits
                 else:
                     with tf.variable_scope("conv"):
                         inputs = conv2d(
