@@ -8,7 +8,7 @@ def log(x, base):
 
 
 def lerp(a, b, t):
-    return t * a + (1.0 - t) * b
+    return t * a + (1 - t) * b
 
 
 class StyleGAN(object):
@@ -29,7 +29,7 @@ class StyleGAN(object):
         self.min_depth = log2(self.min_resolution // self.min_resolution)
         self.max_depth = log2(self.max_resolution // self.min_resolution)
 
-        self.growing_depth = log(1.0 + ((1 << (self.max_depth + 1)) - 1.0) * self.growing_level, 2.0)
+        self.growing_depth = log(1 + ((1 << (self.max_depth + 1)) - 1) * self.growing_level, 2.0)
         self.switching_depth = tf.cast(tf.cast(self.max_depth, tf.float32) * self.switching_level, tf.int32)
 
     def generator(self, high_latents, low_latents, labels=None, name="generator", reuse=None):

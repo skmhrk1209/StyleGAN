@@ -14,6 +14,7 @@ from utils import Struct
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--model_dir", type=str, default="celeba_style_gan_model")
+parser.add_argument("--sample_dir", type=str, default="celeba_style_gan_samples")
 parser.add_argument('--filenames', type=str, nargs="+", default=["celeba_train.tfrecord"])
 parser.add_argument("--batch_size", type=int, default=16)
 parser.add_argument("--num_epochs", type=int, default=None)
@@ -99,6 +100,7 @@ with tf.Graph().as_default():
     if args.generate:
         gan.generate(
             model_dir=args.model_dir,
+            sample_dir=args.sample_dir,
             config=tf.ConfigProto(
                 gpu_options=tf.GPUOptions(
                     visible_device_list=args.gpu,

@@ -164,7 +164,7 @@ class GAN(object):
             frechet_inception_distance = metrics.frechet_inception_distance(*map(np.concatenate, zip(*generator())))
             tf.logging.info("frechet_inception_distance: {}".format(frechet_inception_distance))
 
-    def generate(self, model_dir, config):
+    def generate(self, model_dir, sample_dir, config):
 
         with tf.train.SingularMonitoredSession(
             scaffold=tf.train.Scaffold(
@@ -178,13 +178,16 @@ class GAN(object):
             config=config
         ) as session:
 
-            sample_dir = Path("samples")
+            sample_dir = Path(sample_dir)
 
             if not sample_dir.exists():
                 sample_dir.mkdir(parents=True, exist_ok=True)
 
+            def unnormalize(inputs, mean, std):
+                return inputs * std + mean
+
             for fake_image in session.run(self.tensors.fake_images):
                 skimage.io.imsave(
                     fname=sample_dir / "{}.jpg".format(len(list(sample_dir.glob("*.jpg")))),
-                    arr=linear_map(fake_image, -1.0, 1.0, 0.0, 255.0).astype(np.uint8).clip(0, 255)
+                    arr=unnormalize(fake_image, 0.5, 0.5)
                 )
